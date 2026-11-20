@@ -3,8 +3,32 @@ import crypto from "node:crypto";
 
 /* ---------------- storage (Upstash Redis over REST) ---------------- */
 
-const REDIS_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-const REDIS_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+// Vercel's Upstash connection can name these settings several ways (and adds a prefix if one was
+// typed in when connecting), so look for any setting that ends with the usual names.
+function findSetting(...suffixes) {
+  for (const suf of suffixes) {
+    if (process.env[suf]) return process.env[suf];
+    const k = Object.keys(process.env).find(k => k.endsWith("_" + suf) && process.env[k]);
+    if (k) return process.env[k];
+  }
+  return "";
+}
+function fromRedisUrl() {
+  // Last resort: an Upstash connection string like rediss://default:PASSWORD@NAME.upstash.io:6379
+  const raw = findSetting("REDIS_URL", "KV_URL");
+  try {
+    const u = new URL(raw);
+    if (!/upstash\.io$/.test(u.hostname) || !u.password) return null;
+    return { url: "https://" + u.hostname, token: decodeURIComponent(u.password) };
+  } catch { return null; }
+}
+const REDIS_URL = findSetting("KV_REST_API_URL", "UPSTASH_REDIS_REST_URL") || fromRedisUrl()?.url;
+const REDIS_TOKEN = findSetting("KV_REST_API_TOKEN", "UPSTASH_REDIS_REST_TOKEN") || fromRedisUrl()?.token;
+
+// Names (never values) of storage-looking settings, to explain what's missing.
+export function storageSettingNames() {
+  return Object.keys(process.env).filter(k => /KV|REDIS|UPSTASH/.test(k)).sort();
+}
 
 // In-memory stand-in, only for local testing (CS_MEMORY=1).
 const mem = globalThis.__csMem || (globalThis.__csMem = { kv: new Map(), h: new Map() });
@@ -130,8 +154,14 @@ export function guard(req, res, { methods }) {
   res.setHeader("Cache-Control", "no-store");
   if (!methods.includes(req.method)) { res.status(405).json({ error: "Not allowed", code: "method" }); return false; }
   if (!process.env.TEAM_PASSWORD) { res.status(500).json({ error: "The team password isn't set up yet. Add TEAM_PASSWORD in the Vercel project's settings.", code: "setup" }); return false; }
-  if (!storageReady()) { res.status(500).json({ error: "Storage isn't connected yet. Add an Upstash Redis store in the Vercel project's Storage tab.", code: "setup" }); return false; }
   if (!isSignedIn(req)) { res.status(401).json({ error: "Sign in", code: "auth" }); return false; }
+  if (!storageReady()) {
+    const found = storageSettingNames();
+    res.status(500).json({ code: "setup", error: found.length
+      ? `Storage settings were found (${found.join(", ")}) but not the ones this site needs. Send Claude this message.`
+      : "Storage isn't connected yet. Connect the Upstash database to this project in Vercel's Storage tab, then redeploy." });
+    return false;
+  }
   if (req.method === "POST" && !String(req.headers["content-type"] || "").includes("application/json")) {
     res.status(415).json({ error: "Expected JSON", code: "type" }); return false;
   }
