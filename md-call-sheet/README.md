@@ -28,4 +28,3 @@ The first time anyone signs in, the 2,006 restaurants from the Claude version ar
 - `public/` is the page (`index.html`, `style.css`, `app.js`, and `fx.js` for the liquid background).
 - `api/` holds the server routes: sign-in, the shared list, check-offs, sync, import and the daily update.
 - `data/seed.js` is the restaurant list moved over from the Claude version.
-- Local testing: `CS_MEMORY=1 TEAM_PASSWORD=test npm run dev`, then open http://localhost:3000.
