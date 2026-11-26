@@ -28,3 +28,11 @@ The first time anyone signs in, the 2,006 restaurants from the Claude version ar
 - `public/` is the page (`index.html`, `style.css`, `app.js`, and `fx.js` for the liquid background).
 - `api/` holds the server routes: sign-in, the shared list, check-offs, sync, import and the daily update.
 - `data/seed.js` is the restaurant list moved over from the Claude version.
+
+## Business leads
+
+A second list behind the same team-password gate: 278 verified Maryland businesses (non-restaurant) with no professional website, ranked by lead score. Switch between **Restaurants** and **Business leads** at the top of the window; the restaurant list is unchanged.
+
+- The data lives in `data/leads.js` (static, generated from the lead-research database). The list is grouped into type tabs (All, Home Services, Auto & Transport, Health & Beauty, Food, Retail & Boutiques, Pets, Professional Services, Other) by keyword rules on the category in `public/app.js` (`LEAD_TYPE_RULES`), and can be filtered by search, category, county, website status and sort.
+- Check-offs are stored separately in Redis under the `cs:leads:done` hash (`api/leads.js` / `api/leads-done.js`) and never touch restaurant data.
+- A "Search progress" section at the bottom of the leads view shows how the list was built and what still needs research.
