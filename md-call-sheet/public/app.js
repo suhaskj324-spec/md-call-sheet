@@ -14,6 +14,12 @@ const myName=()=>(ls.get("cs.name")||"").trim();
 let tiles=new Map(), done=new Map(), ready=false;
 let view="todo", sort=ls.get("cs.sort")||"near", phoneOnly=ls.get("cs.phone")==="1", q="", shown=PAGE;
 let syncing=false, lastErr="", paused=false;
+
+/* ---------- business leads (additive; the restaurant flow above is untouched) ---------- */
+let mode="restaurants";
+let leads=[], leadsDone=new Map(), leadsLoaded=false;
+let lq="", lcat="", lcounty="", lstatus="", lsort="score", lview="todo";
+const expandedLeads=new Set();
 const leaving=new Set();
 
 /* ---------- helpers ---------- */
@@ -64,6 +70,15 @@ function matches(it){
 
 /* ---------- render ---------- */
 function counts(){
+  if(mode==="leads"){
+    const todo=leads.filter(l=>!leadsDone.has(l.id));
+    const now=Date.now();
+    const nw=leads.filter(l=>l.date_discovered&&now-new Date(l.date_discovered+"T00:00:00").getTime()<NEW_FOR).length;
+    $("st-todo").textContent=todo.length.toLocaleString();
+    $("st-done").textContent=leadsDone.size.toLocaleString();
+    $("st-new").textContent=nw.toLocaleString();
+    return;
+  }
   const todo=allTodo(), now=Date.now();
   const nw=todo.filter(i=>i.f&&now-i.f<NEW_FOR).length;
   $("st-todo").textContent=todo.length.toLocaleString();
@@ -100,6 +115,7 @@ function emptyHTML(){
 }
 let carReset=false;
 function render(){
+  if(mode==="leads"){ counts(); renderLeads(); return; }
   counts();
   let items;
   if(view==="done") items=[...done.values()].filter(matches).sort((a,b)=>(b.doneAt||0)-(a.doneAt||0));
@@ -114,6 +130,170 @@ function render(){
   if(empty) $("list").innerHTML=emptyHTML();
   Car.set(items,view==="done",carReset); carReset=false;
 }
+
+/* ---------- business leads ---------- */
+// Figures hardcoded from lead-generation-agent/data/search_progress.json (2026-11-26).
+const LEADS_PROGRESS={total:278,byStatus:{"No Website":155,"Social Media Only":71,"Website Unlinked":22,"Needs Verification":30,"Outdated Website":0},countiesSearched:24,countiesWithLeads:20,cities:57,categoryLabels:146,discoveredApprox:939,excludedApprox:661,sources:["browser.search place queries","Places details","Facebook","Instagram","Yelp","BBB / directories","Zola / The Knot","BuildZoom","FMCSA / SAFER"],notQueried:["Bing Maps","Yellow Pages","Chamber of Commerce directories"],stillNeeds:["Somerset County — not reached at all","Dorchester, Queen Anne's and Caroline counties — zero firm leads so far","Fitness — zero clean leads statewide","Quota-blocked searches are unsearched, not zero results"]};
+
+// Every lead belongs to exactly one type tab, decided by keywords in its
+// category string. Rules are checked in order; first match wins. Anything
+// that matches nothing (e.g. Locksmith) falls through to "Other".
+const LEAD_TYPE_TABS=["All","Home Services","Auto & Transport","Health & Beauty","Food","Retail & Boutiques","Pets","Professional Services","Other"];
+const LEAD_TYPE_RULES=[
+  ["Pets",["pet","dog trainer"]],
+  ["Auto & Transport",["auto","mechanic","towing","detailing","car wash"]],
+  ["Food",["bakery","cake","catering","food truck"]],
+  ["Health & Beauty",["dental","dentist","barber","hair","beauty","spa","fitness","trainer"]],
+  ["Retail & Boutiques",["dry clean","tailor","boutique","clothing","retail","sewing"]],
+  ["Professional Services",["photograph","video","wedding","event plan","event rental","party","interior design","insurance","account","music","tutor","dance","martial arts","teacher","educational","piano","performing arts"]],
+  ["Home Services",["landscap","plumb","hvac","roof","construction","clean","paint","electric","pressure wash","renovation","remodel","handyman","fence","deck","floor","concrete","masonry","tree","junk removal","window","gutter","carpet","pool","appliance","pest","moving","contractor","home improvement","kitchen","bath","demolition","stump","lawn","garden","mowing","patio"]],
+  ["Retail & Boutiques",["upholstery"]],
+];
+function leadType(l){
+  const c=String(l.category||"").toLowerCase();
+  for(const [tab,keys] of LEAD_TYPE_RULES) if(keys.some(k=>c.includes(k))) return tab;
+  return "Other";
+}
+let ltype="All";
+
+function leadGoogleUrl(l){return "https://www.google.com/search?q="+encodeURIComponent(`${l.name} ${l.city||""} MD`)}
+function leadMapUrl(l){return "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(l.address?`${l.name} ${l.address}`:`${l.name} ${l.city||""} MD`)}
+function statusClass(s){return "pill-"+String(s||"").toLowerCase().replace(/[^a-z]+/g,"-")}
+
+function leadCardHTML(l,isDone){
+  const open=expandedLeads.has(l.id);
+  const d=leadsDone.get(l.id);
+  const links=[["Google",leadGoogleUrl(l)],["Map",leadMapUrl(l)]];
+  if(l.facebook) links.push(["Facebook",l.facebook]);
+  if(l.instagram) links.push(["Instagram",l.instagram]);
+  if(l.website) links.push(["Website",l.website]);
+  return `<article class="lead-card glass" data-lead="${esc(l.id)}">
+    <div class="lead-top"><span class="lead-score" title="Lead score">${esc(l.score)}</span><span class="lead-status ${statusClass(l.website_status)}">${esc(l.website_status)}</span></div>
+    <h3 class="lead-name">${esc(l.name)}</h3>
+    <p class="lead-meta">${esc(l.category)} · ${esc(l.city)}${l.county?", "+esc(l.county):""}</p>
+    ${l.google_rating?`<p class="lead-rating">★ ${esc(l.google_rating)} (${esc(l.google_reviews||0)} reviews)</p>`:""}
+    ${l.phone?`<button class="c-phone" data-copy="${esc(fmtPhone(l.phone))}">${esc(fmtPhone(l.phone))}</button>`:""}
+    <button class="lead-more" data-lead-expand="${esc(l.id)}" aria-expanded="${open}">${open?"Hide details":"Why a website helps"}</button>
+    ${open?`<div class="lead-detail">
+      <p>${esc(l.why_website_helps)}</p>
+      <p class="lead-reason">${esc(l.score_reason)}</p>
+      <div class="c-links">${links.map(([t,u])=>`<a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)}</a>`).join("")}</div>
+      <p class="lead-src">Source: ${esc(l.source)}</p>
+    </div>`:""}
+    <div class="c-foot">
+      ${isDone?`<span style="flex:1">Called ${d&&d.by?(d.by===myName()?"by you ":`by ${esc(d.by)} `):""}${d?esc(ago(d.doneAt)):""}</span><button class="gbtn" data-lead-restore="${esc(l.id)}">Put back</button>`
+      :`<button class="gbtn primary" data-lead-call="${esc(l.id)}">Mark called</button>`}
+    </div>
+  </article>`;
+}
+
+function leadsInView(){
+  return leads.filter(l=>lview==="done"?leadsDone.has(l.id):!leadsDone.has(l.id));
+}
+function typeCounts(){
+  const counts={};
+  for(const t of LEAD_TYPE_TABS) counts[t]=0;
+  for(const l of leadsInView()) counts[leadType(l)]++;
+  counts.All=leadsInView().length;
+  return counts;
+}
+function renderTypeTabs(){
+  const counts=typeCounts();
+  $("lead-type-tabs").innerHTML=LEAD_TYPE_TABS.map(t=>`<button class="type-tab${t===ltype?" active":""}" data-ltype="${esc(t)}" aria-pressed="${t===ltype}">${esc(t)} <span class="type-count">${counts[t]}</span></button>`).join("");
+}
+function filteredLeads(){
+  let out=leadsInView();
+  if(ltype!=="All") out=out.filter(l=>leadType(l)===ltype);
+  if(lcat) out=out.filter(l=>l.category===lcat);
+  if(lcounty) out=out.filter(l=>l.county===lcounty);
+  if(lstatus) out=out.filter(l=>l.website_status===lstatus);
+  if(lq) out=out.filter(l=>[l.name,l.city,l.category,l.county].join(" ").toLowerCase().includes(lq));
+  if(lsort==="score") out.sort((a,b)=>b.score-a.score);
+  else if(lsort==="rating") out.sort((a,b)=>(b.google_rating||0)-(a.google_rating||0)||b.score-a.score);
+  else if(lsort==="reviews") out.sort((a,b)=>(b.google_reviews||0)-(a.google_reviews||0)||b.score-a.score);
+  else out.sort((a,b)=>a.name.localeCompare(b.name));
+  return out;
+}
+function renderLeads(){
+  if(!leadsLoaded){ $("leads-empty").hidden=false; $("leads-empty").innerHTML="<div><b>Loading</b></div>"; $("leads-grid").innerHTML=""; $("lead-type-tabs").innerHTML=""; return; }
+  renderTypeTabs();
+  const items=filteredLeads();
+  const todo=leads.filter(l=>!leadsDone.has(l.id)).length;
+  $("leads-count").textContent=`${items.length.toLocaleString()} of ${todo.toLocaleString()} to call`;
+  $("leads-empty").hidden=items.length>0;
+  if(!items.length) $("leads-empty").innerHTML=`<div><b>${lview==="done"?"No calls yet":"No matches"}</b><p>${lview==="done"?"Leads you check off show up here.":"Try another search or clear a filter."}</p></div>`;
+  $("leads-grid").innerHTML=items.map(l=>leadCardHTML(l,leadsDone.has(l.id))).join("");
+}
+function fillSelect(el,values){
+  const all=el.options[0]?el.options[0].text:"All";
+  const cur=el.value;
+  el.innerHTML=`<option value="">${esc(all)}</option>`+values.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join("");
+  if(values.includes(cur)) el.value=cur;
+}
+function buildLeadFilters(){
+  fillSelect($("lf-cat"),[...new Set(leads.map(l=>l.category))].sort());
+  fillSelect($("lf-county"),[...new Set(leads.map(l=>l.county).filter(Boolean))].sort());
+}
+function renderProgress(){
+  const p=LEADS_PROGRESS;
+  const rows=Object.entries(p.byStatus).map(([k,v])=>`<li><span>${esc(k)}</span><b>${v}</b></li>`).join("");
+  $("leads-progress-body").innerHTML=`
+    <p>${p.total} verified leads from ${p.countiesSearched} counties searched (${p.countiesWithLeads} with leads), ${p.cities} cities, ${p.categoryLabels} category labels. About ${p.discoveredApprox} businesses were looked at in total (approximate); about ${p.excludedApprox} were excluded because they already have a website (approximate — per-sweep counts, not a deduplicated census).</p>
+    <ul class="prog-list">${rows}</ul>
+    <p><b>Sources explored:</b> ${p.sources.map(esc).join(", ")}.</p>
+    <p><b>Not yet queried:</b> ${p.notQueried.map(esc).join(", ")}.</p>
+    <p><b>Still needs research:</b></p>
+    <ul>${p.stillNeeds.map(s=>`<li>${esc(s)}</li>`).join("")}</ul>`;
+}
+async function fetchLeads(){
+  if(!authed) return;
+  try{
+    const j=await api("/api/leads");
+    leads=j.leads||[]; leadsDone=new Map((j.done||[]).map(d=>[d.id,d])); leadsLoaded=true;
+    buildLeadFilters(); renderProgress();
+    if(mode==="leads") render();
+  }catch(e){ if(e.code!=="auth") showToast("Couldn't load the business leads. Try again.",null); }
+}
+async function leadCheckOff(id){
+  const l=leads.find(x=>x.id===id); if(!l) return;
+  showToast(`Called ${l.name}`,null);
+  try{ await api("/api/leads-done",{method:"POST",body:JSON.stringify({id,by:myName()})}); fetchLeads(); }
+  catch(err){ if(err.code!=="auth") showToast("Couldn't save that check-off. Try again.",null); }
+}
+async function leadRestore(id){
+  try{ await api("/api/leads-done?id="+encodeURIComponent(id),{method:"DELETE"}); fetchLeads(); }
+  catch(err){ if(err.code!=="auth") showToast("Couldn't put that back. Try again.",null); }
+}
+function setMode(m){
+  mode=m;
+  $("mode-tabs").dataset.v=m==="leads"?"leads":"restaurants";
+  pressGroup(["m-rest","m-leads"],m==="leads"?"m-leads":"m-rest");
+  $("rest-bar").hidden=m==="leads";
+  $("rest-sync").hidden=m==="leads";
+  $("rest-section").hidden=m==="leads";
+  $("leads-view").hidden=m!=="leads";
+  $("count").textContent=m==="leads"?"Maryland businesses with no professional website":"Restaurants with no website listed";
+  if(m==="leads") fetchLeads();
+  render();
+}
+$("m-rest").onclick=()=>setMode("restaurants");
+$("m-leads").onclick=()=>setMode("leads");
+$("lv-todo").onclick=()=>{lview="todo";$("leads-tabs").dataset.v="todo";pressGroup(["lv-todo","lv-done"],"lv-todo");renderLeads()};
+$("lv-done").onclick=()=>{lview="done";$("leads-tabs").dataset.v="done";pressGroup(["lv-todo","lv-done"],"lv-done");renderLeads()};
+let lqt; $("lq").oninput=e=>{clearTimeout(lqt);lqt=setTimeout(()=>{lq=e.target.value.trim().toLowerCase();renderLeads()},120)};
+$("lf-cat").onchange=e=>{lcat=e.target.value;renderLeads()};
+$("lf-county").onchange=e=>{lcounty=e.target.value;renderLeads()};
+$("lf-status").onchange=e=>{lstatus=e.target.value;renderLeads()};
+$("lf-sort").onchange=e=>{lsort=e.target.value;renderLeads()};
+$("lead-type-tabs").addEventListener("click",e=>{
+  const b=e.target.closest("[data-ltype]"); if(!b) return;
+  ltype=b.dataset.ltype; renderLeads();
+});
+document.addEventListener("click",e=>{
+  const ex=e.target.closest("[data-lead-expand]"); if(ex){ const id=ex.dataset.leadExpand; expandedLeads.has(id)?expandedLeads.delete(id):expandedLeads.add(id); renderLeads(); return; }
+  const c=e.target.closest("[data-lead-call]"); if(c){ leadCheckOff(c.dataset.leadCall); return; }
+  const r=e.target.closest("[data-lead-restore]"); if(r){ leadRestore(r.dataset.leadRestore); return; }
+});
 
 /* ---------- curved carousel ---------- */
 const Car=(()=>{
@@ -324,7 +504,7 @@ function lock(){
   authed=false; clearInterval(pollT); document.body.classList.add("locked"); $("login").hidden=false;
   $("login-name").value=myName(); setTimeout(()=>($("login-name").value?$("login-pass"):$("login-name")).focus(),50);
 }
-function unlock(){ authed=true; document.body.classList.remove("locked"); $("login").hidden=true; ver=-1; tver=-1; startPolling(); }
+function unlock(){ authed=true; document.body.classList.remove("locked"); $("login").hidden=true; ver=-1; tver=-1; startPolling(); fetchLeads(); }
 $("login-form").addEventListener("submit",async e=>{
   e.preventDefault();
   const go=$("login-go"); go.disabled=true; $("login-err").textContent="";

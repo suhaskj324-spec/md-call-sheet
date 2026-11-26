@@ -177,3 +177,42 @@ body.locked .app{visibility:hidden}
 .link-btn{color:var(--accent);font-size:inherit}
 .link-btn:hover{text-decoration:underline}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---------- business leads (additive; restaurant styles above untouched) ---------- */
+.tabs[data-v="leads"] .thumb{transform:translateX(100%)}
+.leads-filters{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:4px 0 12px}
+.leads-filters select{background:var(--well);border:1px solid rgba(255,255,255,.07);border-radius:var(--r-md);corner-shape:squircle;padding:9px 10px;font-weight:600;font-size:14px;color:var(--ink);outline:none;max-width:100%}
+.leads-filters select:focus{border-color:rgba(108,180,255,.55)}
+.leads-count{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.type-tabs{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 12px;scrollbar-width:thin;-webkit-overflow-scrolling:touch}
+.type-tab{flex:none;display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:999px;background:var(--well);border:1px solid rgba(255,255,255,.1);font-weight:600;font-size:13.5px;color:var(--muted);white-space:nowrap;transition:background .2s,color .2s}
+.type-tab:hover{color:var(--ink)}
+.type-tab.active{background:var(--accent);border-color:transparent;color:#04101f}
+.type-tab .type-count{font-size:12px;opacity:.75;font-variant-numeric:tabular-nums}
+.leads-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;padding-bottom:16px}
+.lead-card{border-radius:var(--r-lg);padding:18px;display:flex;flex-direction:column;gap:6px}
+.lead-top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.lead-score{display:inline-grid;place-items:center;min-width:34px;height:34px;padding:0 8px;border-radius:10px;background:var(--accent);color:#04101f;font-weight:700;font-size:15px;font-variant-numeric:tabular-nums}
+.lead-status{font-size:12px;font-weight:600;padding:4px 9px;border-radius:999px;background:rgba(255,255,255,.1);color:var(--muted);white-space:nowrap}
+.lead-status.pill-no-website{background:rgba(255,123,114,.16);color:#ff9d96}
+.lead-status.pill-social-media-only{background:rgba(108,180,255,.16);color:#8ec4ff}
+.lead-status.pill-website-unlinked{background:rgba(255,196,0,.16);color:#ffd866}
+.lead-status.pill-needs-verification{background:rgba(255,255,255,.1);color:var(--muted)}
+.lead-name{font-size:18px;font-weight:700;line-height:1.25;margin:4px 0 0;overflow-wrap:anywhere}
+.lead-meta{color:var(--muted);font-size:13.5px;margin:0;overflow-wrap:anywhere}
+.lead-rating{color:var(--accent);font-size:13.5px;font-weight:600;margin:0;font-variant-numeric:tabular-nums}
+.lead-card .c-phone{margin-top:4px}
+.lead-more{margin-top:6px;text-align:left;color:var(--accent);font-size:13.5px;font-weight:600}
+.lead-more:hover{text-decoration:underline}
+.lead-detail{margin-top:4px;display:flex;flex-direction:column;gap:8px}
+.lead-detail p{margin:0;font-size:14px}
+.lead-reason{color:var(--muted);font-size:13px}
+.lead-src{color:var(--muted);font-size:12px;overflow-wrap:anywhere}
+.leads-progress{border-radius:var(--r-lg);padding:16px 18px;margin-bottom:16px;font-size:14px}
+.leads-progress summary{cursor:pointer;font-weight:700;font-size:15px}
+.leads-progress p{color:var(--muted);margin:10px 0}
+.leads-progress p b{color:var(--ink)}
+.leads-progress ul{margin:8px 0;padding-left:20px;color:var(--muted)}
+.prog-list{list-style:none;padding:0}
+.prog-list li{display:flex;justify-content:space-between;gap:12px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.prog-list li b{color:var(--ink);font-variant-numeric:tabular-nums}

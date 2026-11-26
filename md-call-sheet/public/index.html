@@ -38,8 +38,13 @@
           <h1>Maryland Call Sheet</h1>
           <p class="subtitle" id="count">Restaurants with no website listed</p>
         </div>
+        <div class="tabs" id="mode-tabs" data-v="restaurants" role="group" aria-label="List">
+          <span class="thumb" aria-hidden="true"></span>
+          <button id="m-rest" aria-pressed="true">Restaurants</button>
+          <button id="m-leads" aria-pressed="false">Business leads</button>
+        </div>
       </div>
-      <div class="bar">
+      <div class="bar" id="rest-bar">
         <label class="search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
           <input id="q" type="search" placeholder="Search name, town or cuisine" aria-label="Search restaurants"></label>
         <div class="tabs" id="tabs" data-v="todo" role="group" aria-label="View">
@@ -59,7 +64,7 @@
         </div>
         <label class="toggle"><input type="checkbox" id="f-phone"><i aria-hidden="true"></i>Has phone</label>
       </div>
-      <div class="sync">
+      <div class="sync" id="rest-sync">
         <button class="gbtn primary" id="sync" data-state="idle"><span id="sync-label">Sync now</span></button>
         <button class="gbtn" id="pause" aria-pressed="false">Pause sync</button>
         <button class="gbtn" id="import-btn">Import file</button>
@@ -67,7 +72,7 @@
         <span id="sync-info">Not synced yet</span>
       </div>
     </header>
-    <section aria-label="Restaurants">
+    <section id="rest-section" aria-label="Restaurants">
       <div id="list" class="stage-msg" hidden></div>
       <div id="carousel">
         <div class="stage" id="stage" tabindex="0" aria-roledescription="carousel" aria-label="Restaurants, use left and right arrow keys"><div class="track" id="track"></div></div>
@@ -78,6 +83,41 @@
           <span id="counter"></span>
         </div>
       </div>
+    </section>
+    <section id="leads-view" aria-label="Business leads" hidden>
+      <div class="leads-filters">
+        <label class="search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="lq" type="search" placeholder="Search name, city, category or county" aria-label="Search business leads"></label>
+        <div class="tabs" id="leads-tabs" data-v="todo" role="group" aria-label="Leads view">
+          <span class="thumb" aria-hidden="true"></span>
+          <button id="lv-todo" aria-pressed="true">To call</button>
+          <button id="lv-done" aria-pressed="false">Called</button>
+        </div>
+        <select id="lf-cat" aria-label="Filter by category"><option value="">All categories</option></select>
+        <select id="lf-county" aria-label="Filter by county"><option value="">All counties</option></select>
+        <select id="lf-status" aria-label="Filter by website status">
+          <option value="">All website statuses</option>
+          <option>No Website</option>
+          <option>Social Media Only</option>
+          <option>Website Unlinked</option>
+          <option>Needs Verification</option>
+          <option>Outdated Website</option>
+        </select>
+        <select id="lf-sort" aria-label="Sort leads">
+          <option value="score">Highest score</option>
+          <option value="rating">Rating</option>
+          <option value="reviews">Most reviews</option>
+          <option value="name">Name A&ndash;Z</option>
+        </select>
+        <span id="leads-count" class="leads-count"></span>
+      </div>
+      <div class="type-tabs" id="lead-type-tabs" role="group" aria-label="Business type"></div>
+      <div id="leads-empty" class="stage-msg" hidden></div>
+      <div id="leads-grid" class="leads-grid"></div>
+      <details class="leads-progress glass" id="leads-progress">
+        <summary>Search progress — how this list was built</summary>
+        <div id="leads-progress-body"></div>
+      </details>
     </section>
   </div>
   <p class="foot">Drag, scroll or use the arrow keys to move through the list. Hold the circle to mark a call done. Restaurant data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>. <button class="link-btn" id="signout">Sign out</button></p>
