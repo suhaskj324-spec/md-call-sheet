@@ -216,6 +216,14 @@ function filteredLeads(){
 }
 function renderLeads(){
   if(!leadsLoaded){ $("leads-empty").hidden=false; $("leads-empty").innerHTML="<div><b>Loading</b></div>"; $("leads-grid").innerHTML=""; $("lead-type-tabs").innerHTML=""; return; }
+  // Keep the header stat cards in sync with the loaded leads here too, not
+  // only in counts(): the leads arrive asynchronously, and any render that
+  // happens before they load would otherwise leave "New this week" at 0.
+  const now=Date.now();
+  const nw=leads.filter(l=>l.date_discovered&&now-new Date(l.date_discovered+"T00:00:00").getTime()<NEW_FOR).length;
+  $("st-todo").textContent=leads.filter(l=>!leadsDone.has(l.id)).length.toLocaleString();
+  $("st-done").textContent=leadsDone.size.toLocaleString();
+  $("st-new").textContent=nw.toLocaleString();
   renderTypeTabs();
   const items=filteredLeads();
   const todo=leads.filter(l=>!leadsDone.has(l.id)).length;
